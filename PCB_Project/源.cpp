@@ -6,6 +6,15 @@
 #define n 3//系统进程数目
 #define ARRIVETIME 5//最长到达时间
 #define RUNTIME 5//最长运行时间
+/*
+	记录错误：
+	1.函数传递参数，读操作可按值传递；修改操作需要用别名传递
+	2.插入删除队列元素，队列分一下情况
+		①为空
+		②队列仅有一个元素
+		③队列中有两个元素
+		④队列中有多个元素
+*/
 //进程控制块（PCB）
 struct PCB {
 	char name[NAME];//进程名
@@ -72,17 +81,6 @@ void quickSort(PCB list[], int low, int high) {
 		quickSort(list, position + 1, high);//以枢轴中心为中点，右侧的数组进行快排
 	}
 }
-//初始化循环队列
-void initQueue(PCB* header,PCB* &present, PCB* &preProcess,PCB processes[]) {
-	//初始化第一个队首指针
-	header = &processes[0];
-	present = header;
-	//初始化每一个进程的链接指针
-	for (int i = 0; i < n-1; i++)
-		processes[i].next = &processes[i + 1];
-	processes[n - 1].next = header;//形成循环队列
-	preProcess = &processes[n - 1];//当前运行进程指针的前一个指针
-}
 //所有进程当前时间减1
 void arriveTimeSub(PCB processes[]) {
 	for (int i = 0; i < n; i++)
@@ -94,7 +92,7 @@ bool round_Robin(CircusQueue& circusQueue) {
 	printProcess(*circusQueue.present);//显示当前进程信息
 	(circusQueue.present->runTime)--;//估计运行时间减1
 	if (circusQueue.present->runTime == 0) {//进程的剩余运行时间为0,退出循环队列
-		printf("当前进程%s运行结束,退出循环队列\n\n", circusQueue.present->name);
+		printf("当前进程%s运行结束,退出循环队列\n", circusQueue.present->name);
 		circusQueue.present->status = 'C';//将该进程的状态置为完成状态“C”
 		return true;
 	}
@@ -128,7 +126,7 @@ void insertCircusQueue(CircusQueue& circusQueue,PCB& process) {
 	process.next = circusQueue.present;
 }
 //将当前进程移出循坏队列
-void removeFromCircusQueue(CircusQueue circusQueue) {
+void removeFromCircusQueue(CircusQueue& circusQueue) {
 	if (circusQueue.present == NULL) {
 		printf("错误！队列为空\n");
 		return;
@@ -141,9 +139,8 @@ void removeFromCircusQueue(CircusQueue circusQueue) {
 	}
 	//循坏队列仅有两个元素
 	if (circusQueue.preProcess == circusQueue.present->next) {
-		circusQueue.present = circusQueue.preProcess;
-		circusQueue.present->next = circusQueue.present;
 		circusQueue.preProcess->next = circusQueue.preProcess;
+		circusQueue.present = circusQueue.preProcess;
 		return;
 	}
 	//循坏队列有多个元素,***************		present发生变化
@@ -156,14 +153,14 @@ int main() {
 	CircusQueue circusQueue;//循坏队列
 	int index = 0;//进程集合下标
 	bool completed = false;//是否有进程完成
-	printf("************初始化进程如下：************\n");
+	printf("************************初始化进程如下：************************\n\n");
 	initProcess(processes);//初始化进程
 	quickSort(processes, 0, n - 1);//使用快速排序
-	printf("************排序之后进程如下：************\n");
+	printf("\n************************排序之后进程如下：************************\n\n");
 	for (int i = 0; i < n; i++)
 		printProcess(processes[i]);
-	printf("************时间片轮转法：************\n");
-	while (index != n-1 || circusQueue.present != NULL) {
+	printf("\n************************时间片轮转法：************************\n\n");
+	while (index != n || circusQueue.present != NULL) {
 		completed = false;
 		//判断是否有到达时间为0的，加入到循坏队列中
 		while (processes[index].arriveTime <= 0) {
