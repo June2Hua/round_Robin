@@ -3,9 +3,9 @@
 #include<time.h>
 #include<string.h>
 #define NAME 20//进程名长度
-#define n 10//系统进程数目
-#define ARRIVETIME 20//最长到达时间
-#define RUNTIME 20//最长运行时间
+#define n 3//系统进程数目
+#define ARRIVETIME 5//最长到达时间
+#define RUNTIME 5//最长运行时间
 //进程控制块（PCB）
 struct PCB {
 	char name[NAME];//进程名
@@ -14,7 +14,8 @@ struct PCB {
 	int runTime;//估计运行时间
 	char status;//进程状态
 };
-struct circusQueue {
+//循坏队列
+struct CircusQueue {
 	PCB* preProcess = NULL;//当前进程的前一个进程
 	PCB* present = NULL;//当前进程
 };
@@ -88,54 +89,103 @@ void arriveTimeSub(PCB processes[]) {
 		processes[i].arriveTime--;
 }
 //时间片轮转法,若有进程运行结束，则返回true。若没有进程结束，则返回false
-bool round_Robin(PCB* present, PCB* preProcess) {
-	printProcess(*present);//显示当前进程信息
-	(present->runTime)--;//估计运行时间减1
-	if (present->runTime == 0) {//进程的剩余运行时间为0,退出循环队列
-		printf("当前进程%s运行结束,退出循环队列\n\n",present->name);
-		present->status = 'C';//将该进程的状态置为完成状态“C”
+bool round_Robin(CircusQueue& circusQueue) {
+	printf("准备执行:");
+	printProcess(*circusQueue.present);//显示当前进程信息
+	(circusQueue.present->runTime)--;//估计运行时间减1
+	if (circusQueue.present->runTime == 0) {//进程的剩余运行时间为0,退出循环队列
+		printf("当前进程%s运行结束,退出循环队列\n\n", circusQueue.present->name);
+		circusQueue.present->status = 'C';//将该进程的状态置为完成状态“C”
 		return true;
 	}
 	return false;
 }
-
+//就绪队列插入一个进程，先插入后移动
+//循坏队列为空，则没有元素，若present和preProcess相同，则仅有一个元素
+void insertCircusQueue(CircusQueue& circusQueue,PCB& process) {
+	//循坏队列为空
+	if (circusQueue.present == NULL) {
+		//当前进程
+		circusQueue.present = &process;
+		circusQueue.present->next = &process;
+		//前一个进程
+		circusQueue.preProcess = &process;
+		circusQueue.preProcess->next = &process;
+		return;
+	}
+	//循坏队列仅有一个,****************************************
+	if (circusQueue.present == circusQueue.preProcess) {
+		PCB& presentProcess = *circusQueue.present;
+		circusQueue.preProcess = &process;
+		circusQueue.preProcess->next = &presentProcess;
+		circusQueue.present = &presentProcess;
+		circusQueue.present->next = circusQueue.preProcess;
+		return;
+	}
+	//循坏队列有多个
+	circusQueue.preProcess->next = &process;
+	circusQueue.preProcess = circusQueue.preProcess->next;
+	process.next = circusQueue.present;
+}
+//将当前进程移出循坏队列
+void removeFromCircusQueue(CircusQueue circusQueue) {
+	if (circusQueue.present == NULL) {
+		printf("错误！队列为空\n");
+		return;
+	}
+	//循坏队列仅有一个元素
+	if (circusQueue.preProcess == circusQueue.present) {
+		circusQueue.preProcess = NULL;
+		circusQueue.present = NULL;
+		return;
+	}
+	//循坏队列仅有两个元素
+	if (circusQueue.preProcess == circusQueue.present->next) {
+		circusQueue.present = circusQueue.preProcess;
+		circusQueue.present->next = circusQueue.present;
+		circusQueue.preProcess->next = circusQueue.preProcess;
+		return;
+	}
+	//循坏队列有多个元素,***************		present发生变化
+	circusQueue.preProcess->next = circusQueue.present->next;
+	circusQueue.present->next = NULL;
+	circusQueue.present = circusQueue.preProcess->next;
+}
 int main() {
 	PCB processes[n];//进程集合
-	PCB* header = NULL;//队首指针
-	PCB* present = NULL;//当前运行进程指针
-	PCB* preProcess = NULL;//当前运行进程指针的前一个指针
+	CircusQueue circusQueue;//循坏队列
+	int index = 0;//进程集合下标
+	bool completed = false;//是否有进程完成
 	printf("************初始化进程如下：************\n");
 	initProcess(processes);//初始化进程
 	quickSort(processes, 0, n - 1);//使用快速排序
-	initQueue(header, present, preProcess, processes);//初始化循环队列
-	bool isProcessComplete;//是否有进程结束
 	printf("************排序之后进程如下：************\n");
 	for (int i = 0; i < n; i++)
 		printProcess(processes[i]);
 	printf("************时间片轮转法：************\n");
-	while (preProcess!=present) {
-		isProcessComplete = round_Robin(present, preProcess);
-		if (isProcessComplete) {
-			preProcess->next = present->next;//退出循环队列
-			present->next = NULL;//下一个指针为NULL
-			present = preProcess->next;//指针移动到下一个
+	while (index != n-1 || circusQueue.present != NULL) {
+		completed = false;
+		//判断是否有到达时间为0的，加入到循坏队列中
+		while (processes[index].arriveTime <= 0) {
+			printf("%s进入了循坏队列\n", processes[index].name);
+			insertCircusQueue(circusQueue, processes[index]);//插入到循坏队列中
+			index++;
 		}
-		else {
-			preProcess = preProcess->next;//指针移动到下一个
-			present = present->next;//指针移动到下一个
+		//循坏队列非空
+		if (circusQueue.present != NULL) {
+			//时间片轮转法
+			completed = round_Robin(circusQueue);
+			//如果有进程完成
+			if (completed) {
+				//当前进程移出循坏队列
+				removeFromCircusQueue(circusQueue);
+			}
+			else {//如果没有进程完成
+				circusQueue.preProcess = circusQueue.preProcess->next;//指针移动到下一个
+				circusQueue.present = circusQueue.present->next;//指针移动到下一个
+			}
 		}
-	}
-	//处理最后一个进程
-	while(true) {
-		printProcess(*present);//显示当前进程信息
-		(present->runTime)--;//估计运行时间减1
-		if (present->runTime == 0) {//进程的剩余运行时间为0,退出循环队列
-			printf("当前进程运行结束,退出循环队列\n");
-			present->status = 'C';//将该进程的状态置为完成状态“C”
-			preProcess->next = present->next;//退出循环队列
-			present->next = NULL;//下一个指针为NULL
-			break;
-		}
+		arriveTimeSub(processes);//达到时间减1
 	}
 	printf("所有进程运行完成\n");
 	system("pause");
