@@ -6,6 +6,7 @@
 #define n 3//系统进程数目
 #define ARRIVETIME 5//最长到达时间
 #define RUNTIME 5//最长运行时间
+#define ROUND_ROBIN_TIME 1//时间片的大小
 /*
 	记录错误：
 	1.函数传递参数，读操作可按值传递；修改操作需要用别名传递
@@ -81,17 +82,17 @@ void quickSort(PCB list[], int low, int high) {
 		quickSort(list, position + 1, high);//以枢轴中心为中点，右侧的数组进行快排
 	}
 }
-//所有进程当前时间减1
+//所有进程当前时间减一个时间片
 void arriveTimeSub(PCB processes[]) {
 	for (int i = 0; i < n; i++)
-		processes[i].arriveTime--;
+		processes[i].arriveTime -= ROUND_ROBIN_TIME;
 }
 //时间片轮转法,若有进程运行结束，则返回true。若没有进程结束，则返回false
 bool round_Robin(CycleQueue& cycleQueue) {
 	printf("准备执行:");
 	printProcess(*cycleQueue.present);//显示当前进程信息
-	(cycleQueue.present->runTime)--;//估计运行时间减1
-	if (cycleQueue.present->runTime == 0) {//进程的剩余运行时间为0,退出循环队列
+	(cycleQueue.present->runTime) -= ROUND_ROBIN_TIME;//估计运行时间减1
+	if (cycleQueue.present->runTime <= 0) {//进程的剩余运行时间为0,退出循环队列
 		printf("当前进程%s运行结束,退出循环队列\n", cycleQueue.present->name);
 		cycleQueue.present->status = 'C';//将该进程的状态置为完成状态“C”
 		return true;
@@ -182,7 +183,7 @@ int main() {
 				cycleQueue.present = cycleQueue.present->next;//指针移动到下一个
 			}
 		}
-		arriveTimeSub(processes);//达到时间减1
+		arriveTimeSub(processes);//达到时间减一个时间片
 	}
 	printf("所有进程运行完成\n");
 	system("pause");
